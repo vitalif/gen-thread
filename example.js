@@ -22,3 +22,13 @@ function* test(thread)
 }
 
 gen.run(test, null, function(result) { console.log(result); });
+
+function* test_throttle(thread)
+{
+    yield thread.throttle(5);
+    console.log('at most 5');
+    yield setTimeout(thread, 1000);
+}
+
+for (var i = 0; i < 15; i++)
+    gen.run(test_throttle);
