@@ -14,11 +14,11 @@ function finishq()
             i--;
         }
     }
-    while (pending.length > 0 && q.length < pending[0][1])
+    while (pending.length > 0 && q.length < pending[0][2])
     {
         var t = pending.shift();
         q.push(t[0]);
-        t[0]();
+        process.nextTick(t[1]);
     }
 }
 
@@ -29,19 +29,22 @@ function runThread(main, arg, done)
     {
         // pass parameters as yield result
         var pass = Array.prototype.slice.call(arguments, 0);
+        var v;
         try
         {
             v = thread.gen.next(pass);
         }
         catch (e)
         {
-            v = { done: 1 };
+            v = { done: 1, error: e };
         }
         if (v.done)
         {
             thread._done = true;
-            finishq();
+            process.nextTick(finishq);
         }
+        if (v.error)
+            throw v.error;
         if (v.done && done)
             done(v.value);
     };
@@ -53,12 +56,30 @@ function runThread(main, arg, done)
         if (q.length < count)
         {
             q.push(thread);
-            setTimeout(thread, 1);
+            process.nextTick(thread.cb());
         }
         else
         {
-            pending.push([ thread, count ]);
+            pending.push([ thread, thread.cb(), count ]);
         }
+    };
+    thread.cb = function()
+    {
+        var fn = function()
+        {
+            if (thread._current != fn)
+            {
+                throw new Error('Broken control flow! Callback'+
+                    thread._current._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+
+                    '\nmust be called to resume thread, but this one is called instead:'+
+                    fn._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+'\n--'
+                );
+            }
+            return thread.apply(thread, arguments);
+        };
+        fn._stack = new Error().stack;
+        thread._current = fn;
+        return fn;
     };
     thread();
 }
