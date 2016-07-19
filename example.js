@@ -28,6 +28,14 @@ function* test_throttle(thread)
     yield thread.throttle(5);
     console.log('at most 5');
     yield setTimeout(thread, 1000);
+    console.log('continue in another generator');
+    yield other_gen(thread);
+}
+
+function* other_gen(thread)
+{
+    yield setTimeout(thread, 1000);
+    console.log('finished in another generator');
 }
 
 for (var i = 0; i < 15; i++)

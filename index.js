@@ -32,7 +32,7 @@ function runThread(main, arg, done)
         var v;
         try
         {
-            v = thread.gen.next(pass);
+            v = thread.gens[0].next(pass);
         }
         catch (e)
         {
@@ -40,16 +40,35 @@ function runThread(main, arg, done)
         }
         if (v.done)
         {
+            // generator finished
+            thread.gens.shift();
+            if (thread.gens.length)
+            {
+                // return to previous generator
+                thread(v.value);
+                return;
+            }
+        }
+        if (typeof v.value == 'object' &&
+            v.value.constructor.constructor == thread.gens[0].constructor.constructor)
+        {
+            // another generator instance returned - add it to stack and call
+            thread.gens.unshift(v.value);
+            thread();
+            return;
+        }
+        if (!thread.gens.length)
+        {
             thread._done = true;
             process.nextTick(finishq);
         }
         if (v.error)
             throw v.error;
-        if (v.done && done)
+        if (!thread.gens.length && done)
             done(v.value);
     };
     thread.id = tid++;
-    thread.gen = main(thread, arg);
+    thread.gens = [ main(thread, arg) ];
     thread.throttle = function(count)
     {
         finishq();
@@ -82,6 +101,7 @@ function runThread(main, arg, done)
         return fn;
     };
     thread();
+    return thread;
 }
 
 function runParallel(threads, done)
