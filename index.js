@@ -1,16 +1,19 @@
 // Yet Another Hack to fight node.js callback hell: generator-based coroutines
+// Distinctive features:
+// - simple to use: does not require modifications of existing callback-based code
+// - checks control flow safely
 
 module.exports.run = runThread;
 module.exports.runParallel = runParallel;
 
-function runThread(main, arg, done)
+function runThread(generator, arg, finishCallback)
 {
     var thread = function() { continueThread.apply(thread) };
-    thread._gens = [ main(thread, arg) ];
     thread.throttle = throttleThread;
     thread.cb = threadCallback.bind(thread);
+    thread._gen = generator(thread, arg);
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
-    thread._finishCallback = done;
+    thread._finishCallback = finishCallback;
     thread();
     return thread;
 }
@@ -22,7 +25,7 @@ function continueThread()
     var v;
     try
     {
-        v = this._gens[0].next(pass);
+        v = this._gen.next(pass);
     }
     catch (e)
     {
@@ -31,30 +34,12 @@ function continueThread()
     if (v.done)
     {
         // generator finished
-        this._gens.shift();
-        if (this._gens.length)
-        {
-            // return to previous generator
-            this(v.value);
-            return;
-        }
-    }
-    if (typeof v.value == 'object' &&
-        v.value.constructor.constructor == this._gens[0].constructor.constructor)
-    {
-        // another generator instance returned - add it to stack and call
-        this._gens.unshift(v.value);
-        this();
-        return;
-    }
-    if (!this._gens.length)
-    {
         this._done = true;
         process.nextTick(this._finishThrottleQueue);
     }
     if (v.error)
         throw v.error;
-    if (!this._gens.length && this._finishCallback)
+    if (v.done && this._finishCallback)
         this._finishCallback(v.value);
 }
 
@@ -81,7 +66,7 @@ function threadCallback()
 function throttleThread(count)
 {
     if (!this.throttleData)
-        this.throttleData = this._gens[0].__proto__._genThreadThrottle = this._gens[0].__proto__._genThreadThrottle || { queue: [], pending: [] };
+        this.throttleData = this._gen.__proto__._genThreadThrottle = this._gen.__proto__._genThreadThrottle || { queue: [], pending: [] };
     this._finishThrottleQueue();
     if (this.throttleData.queue.length < count)
     {

@@ -29,7 +29,7 @@ function* test_throttle(thread)
     console.log('at most 5');
     yield setTimeout(thread, 1000);
     console.log('continue in another generator');
-    yield other_gen(thread);
+    yield gen.run(other_gen, null, thread);
 }
 
 function* other_gen(thread)
