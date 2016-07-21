@@ -21,8 +21,6 @@ function* test(thread)
     return 'result';
 }
 
-gen.run(test, null, function(result) { console.log(result); });
-
 function* test_throttle(thread)
 {
     yield thread.throttle(5);
@@ -38,5 +36,25 @@ function* other_gen(thread)
     console.log('finished in another generator');
 }
 
-for (var i = 0; i < 15; i++)
-    gen.run(test_throttle);
+function* test_throw(thread)
+{
+    var cb = thread.errorfirst();
+    try
+    {
+        yield setTimeout(function() { cb(new Error()); }, 500);
+    }
+    catch (e)
+    {
+        console.log('Catched '+e.stack);
+    }
+    console.log(yield setTimeout(thread.cb(), 500));
+    console.log('sleep');
+    console.log(yield setTimeout(thread.cb(), 500));
+    console.log('continue');
+}
+
+//gen.run(test, null, function(result) { console.log(result); });
+
+//for (var i = 0; i < 15; i++) gen.run(test_throttle);
+
+gen.run(test_throw);
