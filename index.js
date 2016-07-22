@@ -8,10 +8,10 @@ module.exports.runParallel = runParallel;
 
 function runThread(generator, arg, finishCallback)
 {
-    var thread = function() { continueThread.apply(thread) };
+    var thread = function() { continueThread.apply(thread, arguments) };
     thread.throttle = throttleThread;
     thread.cb = threadCallback.bind(thread);
-    thread.errorfirst = errorFirst.bind(thread);
+    thread.ef = thread.errorfirst = errorFirst.bind(thread);
     thread._gen = generator(thread, arg);
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
     thread._finishCallback = finishCallback;
@@ -70,7 +70,7 @@ function threadCallback()
                 fn._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+'\n--'
             );
         }
-        return thread.apply(thread, arguments);
+        return callGen(thread, 'next', Array.prototype.slice.call(arguments, 0));
     };
     fn._stack = new Error().stack;
     thread._current = fn;
@@ -92,7 +92,7 @@ function errorFirst()
         }
         if (arguments[0])
             return callGen(thread, 'throw', arguments[0]);
-        return callGen(thread, Array.prototype.slice.call(arguments, 0));
+        return callGen(thread, 'next', Array.prototype.slice.call(arguments, 1));
     };
     fn._stack = new Error().stack;
     thread._current = fn;
