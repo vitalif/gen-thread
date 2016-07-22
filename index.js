@@ -1,20 +1,40 @@
 // Yet Another Hack to fight node.js callback hell: generator-based coroutines
 // Distinctive features:
-// - simple to use: does not require modifications of existing callback or promise based code
+// - simple to use: does not require promisification of existing callback-based code
 // - safely checks control flow
 
 module.exports.run = runThread;
 module.exports.runParallel = runParallel;
 
-function runThread(generator, arg, finishCallback)
+var current;
+
+module.exports.unsafe = function()
+{
+    return current;
+};
+
+module.exports.callback = module.exports.cb = function()
+{
+    return threadCallback.call(current);
+};
+
+module.exports.errorfirst = module.exports.ef = function()
+{
+    return errorFirst.call(current);
+};
+
+module.exports.throttle = function(count)
+{
+    return throttleThread.call(current, count);
+};
+
+function runThread(generator, onsuccess, onerror)
 {
     var thread = function() { continueThread.apply(thread, arguments) };
-    thread.throttle = throttleThread;
-    thread.cb = threadCallback.bind(thread);
-    thread.ef = thread.errorfirst = errorFirst.bind(thread);
-    thread._gen = generator(thread, arg);
+    thread._gen = generator.next ? generator : generator();
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
-    thread._finishCallback = finishCallback;
+    thread._onsuccess = onsuccess;
+    thread._onerror = onerror;
     thread();
     return thread;
 }
@@ -28,28 +48,35 @@ function continueThread()
 function callGen(thread, method, arg)
 {
     var v;
+    current = thread;
     try
     {
         v = thread._gen[method](arg);
     }
     catch (e)
     {
-        v = { done: 1, error: e };
+        v = { error: e };
     }
-    if (v.done)
+    current = null;
+    if (v.done || v.error)
     {
         // generator finished
         thread._done = true;
         process.nextTick(thread._finishThrottleQueue);
     }
     if (v.error)
-        throw v.error;
-    if (v.done && thread._finishCallback)
-        thread._finishCallback(v.value);
-    if (typeof v.value == 'object' && v.value.then)
+    {
+        if (thread._onerror)
+            thread._onerror(v.error);
+        else
+            throw v.error;
+    }
+    else if (v.done && thread._onsuccess)
+        thread._onsuccess(v.value);
+    else if (typeof v.value == 'object' && v.value.then)
     {
         // check if v.value is a Promise
-        var cb = thread.cb();
+        var cb = threadCallback.call(current);
         v.value.then(cb, function(error)
         {
             callGen(thread, 'throw', error);
@@ -107,10 +134,10 @@ function throttleThread(count)
     if (this.throttleData.queue.length < count)
     {
         this.throttleData.queue.push(this);
-        process.nextTick(this.cb());
+        process.nextTick(threadCallback.call(this));
     }
     else
-        this.throttleData.pending.push([ this, this.cb(), count ]);
+        this.throttleData.pending.push([ this, threadCallback.call(this), count ]);
 }
 
 function finishThrottleQueue()
@@ -136,16 +163,20 @@ function finishThrottleQueue()
 function runParallel(threads, done)
 {
     var results = [];
+    var errors = [];
     var resultCount = 0;
-    var allDone = function(i, result)
+    var allDone = function(i, result, error)
     {
-        if (!results[i])
+        if (!results[i] && !errors[i])
         {
-            results[i] = result;
+            if (error)
+                errors[i] = error;
+            else
+                results[i] = result;
             resultCount++;
             if (resultCount == threads.length)
-                done(results);
+                done(results, errors);
         }
     };
-    threads.map((t, i) => runThread(t, null, function(result) { allDone(i, result); }));
+    threads.map((t, i) => runThread(t, function(result) { allDone(i, result); }, function(error) { allDone(i, null, error); }));
 }
