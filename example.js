@@ -27,7 +27,7 @@ function* test_throttle(thread)
     console.log('at most 5');
     yield setTimeout(thread, 1000);
     console.log('continue in another generator');
-    yield gen.run(other_gen, null, thread);
+    yield* other_gen(thread); // same as 'yield gen.run(other_gen, null, thread)'
 }
 
 function* other_gen(thread)
@@ -53,8 +53,8 @@ function* test_throw(thread)
     console.log('continue');
 }
 
-//gen.run(test, null, function(result) { console.log(result); });
+gen.run(test, null, function(result) { console.log(result); });
 
-//for (var i = 0; i < 15; i++) gen.run(test_throttle);
+for (var i = 0; i < 15; i++) gen.run(test_throttle);
 
 gen.run(test_throw);
