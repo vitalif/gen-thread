@@ -45,6 +45,11 @@ function continueThread()
     callGen(this, 'next', Array.prototype.slice.call(arguments, 0));
 }
 
+function getStack(fn)
+{
+    return fn._stack.replace(/Error[\s\S]*at.*(exports\.(cb|ef|errorfirst)|Function\.(errorFirst|threadCallback)).*/, '');
+}
+
 function callGen(thread, method, arg)
 {
     var v;
@@ -92,9 +97,9 @@ function threadCallback()
         if (thread._current != fn)
         {
             throw new Error('Broken control flow! Callback'+
-                thread._current._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+
+                getStack(thread._current)+
                 '\nmust be called to resume thread, but this one is called instead:'+
-                fn._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+'\n--'
+                getStack(fn)+'\n--'
             );
         }
         return callGen(thread, 'next', Array.prototype.slice.call(arguments, 0));
@@ -112,13 +117,19 @@ function errorFirst()
         if (thread._current != fn)
         {
             throw new Error('Broken control flow! Callback'+
-                thread._current._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+
+                getStack(thread._current)+
                 '\nmust be called to resume thread, but this one is called instead:'+
-                fn._stack.replace(/^\s*Error\s*at Function\.thread\.cb\s*\([^)]*\)/, '')+'\n--'
+                getStack(fn._stack)+'\n--'
             );
         }
         if (arguments[0])
-            return callGen(thread, 'throw', arguments[0]);
+        {
+            var e = arguments[0];
+            var m = /^([\s\S]*?)((\n\s*at.*)*)$/.exec(e.stack);
+            if (m)
+                e.stack = m[1]+getStack(thread._current)+'\n-- async error thrown at:'+m[2];
+            return callGen(thread, 'throw', e);
+        }
         return callGen(thread, 'next', Array.prototype.slice.call(arguments, 1));
     };
     fn._stack = new Error().stack;
