@@ -35,7 +35,7 @@ function runThread(generator, onsuccess, onerror)
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
     thread._onsuccess = onsuccess;
     thread._onerror = onerror;
-    thread();
+    callGen(thread, 'next', []);
     return thread;
 }
 
