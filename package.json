@@ -1,0 +1,38 @@
+{
+  "name": "gen-thread",
+  "version": "1.0.0",
+  "author": {
+    "name": "Vitaliy Filippov",
+    "email": "vitalif@yourcmc.ru"
+  },
+  "description": "Yet another generator-based control flow library (similar to gene, but safer)",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "example.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vitalif/gen-thread.git"
+  },
+  "homepage": "https://github.com/vitalif/gen-thread",
+  "bugs": {
+    "url": "https://github.com/vitalif/gen-thread/issues"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": [
+    "generators",
+    "yield",
+    "async",
+    "control-flow"
+  ],
+  "license": "MIT",
+  "scripts": {},
+  "maintainers": [
+    {
+      "name": "vitalif",
+      "email": "vitalif@mail.ru"
+    }
+  ]
+}
