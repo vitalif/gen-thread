@@ -30,11 +30,16 @@ module.exports.throttle = function(count)
 
 function runThread(generator, onsuccess, onerror)
 {
-    var thread = function() { continueThread.apply(thread, arguments) };
+    var thread = function()
+    {
+        thread._current = null;
+        continueThread.apply(thread, arguments);
+    };
     thread._gen = generator.next ? generator : generator();
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
     thread._onsuccess = onsuccess;
     thread._onerror = onerror;
+    thread._running = false;
     callGen(thread, 'next', []);
     return thread;
 }
@@ -52,16 +57,35 @@ function getStack(fn)
 
 function callGen(thread, method, arg)
 {
+    if (thread._running)
+    {
+        // callback called while generator is already running
+        thread._result = [ method, arg ];
+        return;
+    }
     var v;
+    thread._running = true;
     current = thread;
     try
     {
-        v = thread._gen[method](arg);
+        while (1)
+        {
+            v = thread._gen[method](arg);
+            if (!v.done && thread._result)
+            {
+                method = thread._result[0];
+                arg = thread._result[1];
+                thread._result = null;
+            }
+            else
+                break;
+        }
     }
     catch (e)
     {
         v = { error: e };
     }
+    thread._running = false;
     current = null;
     if (v.done || v.error)
     {

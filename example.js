@@ -1,8 +1,11 @@
-var gen = require('./gen-thread.js');
+var gen = require('./index.js');
 
 function* test()
 {
     console.log('start');
+    // Should give no "Generator is already running" error
+    var v = yield gen.cb()('expected value');
+    console.log(v[0] === 'expected value');
     var cb = gen.unsafe();
     console.log([ 'next', yield setTimeout(function() { cb('zhopa', 123); }, 500) ]);
     var args = yield gen.runParallel([
