@@ -64,6 +64,7 @@ function callGen(thread, method, arg)
         return;
     }
     var v;
+    var prev = current;
     thread._running = true;
     current = thread;
     try
@@ -86,7 +87,7 @@ function callGen(thread, method, arg)
         v = { error: e };
     }
     thread._running = false;
-    current = null;
+    current = prev;
     if (v.done || v.error)
     {
         // generator finished
