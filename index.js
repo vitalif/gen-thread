@@ -33,7 +33,8 @@ function runThread(generator, onsuccess, onerror)
     var thread = function()
     {
         thread._current = null;
-        continueThread.apply(thread, arguments);
+        // pass parameters as yield result
+        callGen(thread, 'next', Array.prototype.slice.call(arguments, 0));
     };
     thread._gen = generator.next ? generator : generator();
     thread._finishThrottleQueue = finishThrottleQueue.bind(thread);
@@ -42,12 +43,6 @@ function runThread(generator, onsuccess, onerror)
     thread._running = false;
     callGen(thread, 'next', []);
     return thread;
-}
-
-function continueThread()
-{
-    // pass parameters as yield result
-    callGen(this, 'next', Array.prototype.slice.call(arguments, 0));
 }
 
 function getStack(fn)
@@ -106,7 +101,7 @@ function callGen(thread, method, arg)
     else if (typeof v.value == 'object' && v.value.then)
     {
         // check if v.value is a Promise
-        var cb = threadCallback.call(current);
+        var cb = threadCallback.call(thread);
         v.value.then(cb, function(error)
         {
             callGen(thread, 'throw', error);
