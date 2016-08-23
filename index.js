@@ -101,10 +101,13 @@ function callGen(thread, method, arg)
     else if (typeof v.value == 'object' && v.value.then)
     {
         // check if v.value is a Promise
-        var cb = threadCallback.call(thread);
-        v.value.then(cb, function(error)
+        v.value.then(function(value)
         {
-            callGen(thread, 'throw', error);
+            // use process.nextTick so Promise does not intercept our exceptions
+            process.nextTick(function() { callGen(thread, 'next', value); });
+        }, function(error)
+        {
+            process.nextTick(function() { callGen(thread, 'throw', error); });
         });
     }
 }
