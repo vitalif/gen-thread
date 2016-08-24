@@ -1,7 +1,10 @@
 // Yet Another Hack to fight node.js callback hell: generator-based coroutines
 // Distinctive features:
-// - simple to use: does not require promisification of existing callback-based code
-// - safely checks control flow
+// - simple to use:
+//   - does not require promisification of existing callback-based code
+//   - does not require async/await
+// - safely checks control flow and reports exceptions
+// - also supports promises (like await)
 
 module.exports.run = runThread;
 module.exports.runParallel = runParallel;
@@ -11,6 +14,12 @@ var current;
 module.exports.unsafe = function()
 {
     return current;
+};
+
+module.exports.p = function(p)
+{
+    p._stack = new Error().stack;
+    return p;
 };
 
 module.exports.callback = module.exports.cb = function()
@@ -47,7 +56,7 @@ function runThread(generator, onsuccess, onerror)
 
 function getStack(fn)
 {
-    return fn._stack.replace(/Error[\s\S]*at.*(exports\.(cb|ef|errorfirst)|Function\.(errorFirst|threadCallback)).*/, '');
+    return fn._stack.replace(/Error[\s\S]*at.*(exports\.(cb|ef|errorfirst|p\s)|Function\.(errorFirst|threadCallback)).*/, '');
 }
 
 function callGen(thread, method, arg)
@@ -105,9 +114,16 @@ function callGen(thread, method, arg)
         {
             // use process.nextTick so Promise does not intercept our exceptions
             process.nextTick(function() { callGen(thread, 'next', value); });
-        }, function(error)
+        }, function(e)
         {
-            process.nextTick(function() { callGen(thread, 'throw', error); });
+            if (v.value._stack)
+            {
+                // report stack trace captured with `yield gen.p(promise)`
+                var m = /^([\s\S]*?)((\n\s*at.*)*)$/.exec(e.stack);
+                if (m)
+                    e.stack = m[1]+getStack(v.value)+'\n-- async error thrown at:'+m[2];
+            }
+            process.nextTick(function() { callGen(thread, 'throw', e); });
         });
     }
 }
