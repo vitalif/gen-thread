@@ -66,8 +66,6 @@ function* makeQueries()
   // except the first one in case of gen.ef() - it's checked for an exception
   var result = (yield client.query('SELECT $1::text as name', ['brianc'], gen.ef()))[0];
 
-  console.log(result.rows[0]);
-
   // gen.ef() will rethrow asynchronous exceptions with the correct stack
   // (you'll see that the exception is originated from the calling generator)
   yield client.end(gen.ef());
@@ -205,7 +203,9 @@ running ones finish.
 * `gen.cb()`: generate a callback to resume current cothread. use as a callback argument for APIs you call before yield'ing.
 * `gen.ef()`: generate an error-first style callback to resume current cothread.
 * `gen.unsafe()`: generate an unsafe callback to resume current cothread (does not check control flow).
-* `gen.p(promise)`: add stack information to promise before yielding it and return it back.
+* `gen.p(promise)`: add stack information to promise before yielding it and return it back. use like: `yield gen.p(promise)`
+* `yield gen.throttle(number)`: wait until there is no more concurrently running threads of the
+  same type as the current one than `number`.
 * `gen.runParallel([ generator1, generator2, ... ], onComplete)`: run multiple cothreads
   in parallel, invoke `onComplete([ result1, result2, ... ], [ error1, error2, ... ])` when all finish.
 
