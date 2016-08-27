@@ -107,9 +107,10 @@ function callGen(thread, method, arg)
     }
     else if (v.done && thread._onsuccess)
         thread._onsuccess(v.value);
-    else if (typeof v.value == 'object' && v.value.then)
+    else if (typeof v.value == 'object' && v.value.then && !thread._current)
     {
         // check if v.value is a Promise
+        // (but not if an explicit .then(gen.cb()) callback is already set by caller)
         v.value.then(function(value)
         {
             // use process.nextTick so Promise does not intercept our exceptions
@@ -141,6 +142,7 @@ function threadCallback()
                 getStack(fn)+'\n--'
             );
         }
+        thread._current = null;
         return callGen(thread, 'next', Array.prototype.slice.call(arguments, 0));
     };
     fn._stack = new Error().stack;
@@ -161,12 +163,13 @@ function errorFirst()
                 getStack(fn)+'\n--'
             );
         }
+        thread._current = null;
         if (arguments[0])
         {
             var e = arguments[0];
             var m = /^([\s\S]*?)((\n\s*at.*)*)$/.exec(e.stack);
             if (m)
-                e.stack = m[1]+getStack(thread._current)+'\n-- async error thrown at:'+m[2];
+                e.stack = m[1]+getStack(fn)+'\n-- async error thrown at:'+m[2];
             return callGen(thread, 'throw', e);
         }
         return callGen(thread, 'next', Array.prototype.slice.call(arguments, 1));
