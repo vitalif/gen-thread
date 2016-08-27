@@ -158,7 +158,7 @@ function errorFirst()
             throw new Error('Broken control flow! Callback'+
                 getStack(thread._current)+
                 '\nmust be called to resume thread, but this one is called instead:'+
-                getStack(fn._stack)+'\n--'
+                getStack(fn)+'\n--'
             );
         }
         if (arguments[0])
